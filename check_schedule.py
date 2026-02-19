@@ -8,20 +8,25 @@ import json
 import hashlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
 # --- CONFIGURATION ---
 PDF_URL = "https://www.flyaeroguard.com/wp-content/uploads/student-resources/TeamSchedule.pdf"
 TARGET_NAME = "shourya"  
 MEMORY_FILE = "last_schedule.txt"
 
 def send_telegram(flights_data):
-    # ... (keep secrets logic)
-    
+    token = os.environ.get("TELEGRAM_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        print("Telegram secrets missing. Skipping Telegram.")
+        return
+        
     # Force Phoenix time for the Telegram date
     phx_time = datetime.now(ZoneInfo("America/Phoenix"))
     date_str = phx_time.strftime("%d %b").upper()
     
-    msg = f"🗓 **SCHEDULE: {date_str}**\n**CDT:** {TARGET_NAME.title()}\n\n"
-    # ... (rest of the function stays the same)
+    # Emoji-free, professional header
+    msg = f"**[ AEROGUARD SCHEDULE: {date_str} ]**\n**CDT:** {TARGET_NAME.title()}\n\n"
     
     for f in flights_data:
         msg += (
@@ -38,7 +43,10 @@ def send_telegram(flights_data):
     requests.post(url, json=payload)
 
 def send_trmnl(flights_data):
-    # ... (keep webhook logic)
+    webhook_url = os.environ.get("TRMNL_WEBHOOK")
+    if not webhook_url:
+        print("TRMNL webhook missing. Skipping TRMNL update.")
+        return
 
     # Force Phoenix time for the TRMNL timestamp
     phx_time = datetime.now(ZoneInfo("America/Phoenix"))
@@ -49,7 +57,7 @@ def send_trmnl(flights_data):
             "updated_at": phx_time.strftime("%H:%M")
         }
     }
-    # ... (rest of the function stays the same)    try:
+    try:
         requests.post(webhook_url, json=payload)
     except Exception as e:
         print(f"Failed to update TRMNL: {e}")
@@ -59,7 +67,8 @@ def extract_flight_data(raw_string):
     date_pattern = r"(\d{1,2}\s[A-Z][a-z]{2}\s\d{4}\s\d{2}:\d{2})"
     dates = re.findall(date_pattern, raw_string)
     
-    if len(dates) < 2: return None
+    if len(dates) < 2: 
+        return None
         
     start_dt, end_dt = dates[0], dates[1]
     
@@ -67,11 +76,13 @@ def extract_flight_data(raw_string):
     status = status_match.group(1).title() if status_match else "Unknown"
     
     remainder = raw_string.replace(start_dt, "").replace(end_dt, "")
-    if status_match: remainder = remainder.replace(status_match.group(0), "")
+    if status_match: 
+        remainder = remainder.replace(status_match.group(0), "")
         
     aircraft_match = re.search(r"\b(PA28-\w+|C172|PA44|DA42(?:\sNG)?|AATD|C152)\b", remainder)
     aircraft = aircraft_match.group(1) if aircraft_match else "Unknown"
-    if aircraft_match: remainder = remainder.replace(aircraft_match.group(0), "")
+    if aircraft_match: 
+        remainder = remainder.replace(aircraft_match.group(0), "")
         
     is_solo = re.search(r"\b(Solo|SOLO)\b", remainder, re.IGNORECASE)
     instructor = "SOLO FLIGHT" if is_solo else "Unknown IP"
@@ -84,7 +95,8 @@ def extract_flight_data(raw_string):
             
     activity_match = re.search(r"\b(Flight\s*/\s*[A-Za-z\s]+|Sim\s*/\s*[A-Za-z\s]+|Oral\s*/\s*[A-Za-z\s]+)\b", remainder)
     activity_type = activity_match.group(1).strip() if activity_match else ""
-    if activity_match: remainder = remainder.replace(activity_match.group(0), "")
+    if activity_match: 
+        remainder = remainder.replace(activity_match.group(0), "")
 
     remainder = re.sub(r"[A-Za-z0-9]+\.[A-Za-z]+\s*/\s*", "", remainder)
     lesson_info = " ".join(remainder.split())
@@ -92,7 +104,8 @@ def extract_flight_data(raw_string):
     start_parts = start_dt.split(" ")
     end_parts = end_dt.split(" ")
     time_str = f"{start_parts[3]} - {end_parts[3]}"
-    if start_parts[0] != end_parts[0]: time_str += " (+1D)"
+    if start_parts[0] != end_parts[0]: 
+        time_str += " (+1D)"
         
     return {
         "time": time_str,
@@ -109,6 +122,7 @@ def check_schedule():
         response = requests.get(PDF_URL, headers=headers, timeout=30)
         response.raise_for_status()
     except Exception as e:
+        print(f"Failed to download PDF: {e}")
         sys.exit(1)
 
     flights_data = []
@@ -128,14 +142,13 @@ def check_schedule():
                             if f_data and f_data not in flights_data:
                                 flights_data.append(f_data)
     except Exception as e:
+        print(f"Failed to parse PDF: {e}")
         sys.exit(1)
 
     # --- THE BRAIN (MEMORY LOGIC) ---
-    # Convert flight data to a unique hash string
     current_schedule_str = json.dumps(flights_data, sort_keys=True)
     current_fingerprint = hashlib.md5(current_schedule_str.encode()).hexdigest()
 
-    # Read the previous fingerprint
     last_fingerprint = ""
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r") as f:
@@ -147,11 +160,9 @@ def check_schedule():
 
     print("🚨 New or updated schedule detected! Sending notifications...")
     
-    # Save the new fingerprint so we don't alert on it again
     with open(MEMORY_FILE, "w") as f:
         f.write(current_fingerprint)
 
-    # Send the notifications
     if flights_data:
         send_telegram(flights_data)
         send_trmnl(flights_data)
