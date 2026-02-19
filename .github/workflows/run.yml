@@ -1,0 +1,21 @@
+name: Check Schedule
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Runs every 4 hours automatically
+  workflow_dispatch:       # Adds a button so you can trigger it manually
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: pip install -r requirements.txt
+      - name: Run Script
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python check_schedule.py
