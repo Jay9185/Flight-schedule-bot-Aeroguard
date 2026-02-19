@@ -7,7 +7,7 @@ import re
 import json
 import hashlib
 from datetime import datetime
-
+from zoneinfo import ZoneInfo
 # --- CONFIGURATION ---
 PDF_URL = "https://www.flyaeroguard.com/wp-content/uploads/student-resources/TeamSchedule.pdf"
 TARGET_NAME = "shourya"  
