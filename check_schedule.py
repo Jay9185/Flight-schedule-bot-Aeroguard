@@ -14,14 +14,14 @@ TARGET_NAME = "shourya"
 MEMORY_FILE = "last_schedule.txt"
 
 def send_telegram(flights_data):
-    token = os.environ.get("TELEGRAM_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        print("Telegram secrets missing. Skipping Telegram.")
-        return
-        
-    date_str = datetime.now().strftime("%d %b").upper()
+    # ... (keep secrets logic)
+    
+    # Force Phoenix time for the Telegram date
+    phx_time = datetime.now(ZoneInfo("America/Phoenix"))
+    date_str = phx_time.strftime("%d %b").upper()
+    
     msg = f"🗓 **SCHEDULE: {date_str}**\n**CDT:** {TARGET_NAME.title()}\n\n"
+    # ... (rest of the function stays the same)
     
     for f in flights_data:
         msg += (
@@ -38,17 +38,18 @@ def send_telegram(flights_data):
     requests.post(url, json=payload)
 
 def send_trmnl(flights_data):
-    webhook_url = os.environ.get("TRMNL_WEBHOOK")
-    if not webhook_url:
-        return
+    # ... (keep webhook logic)
 
+    # Force Phoenix time for the TRMNL timestamp
+    phx_time = datetime.now(ZoneInfo("America/Phoenix"))
+    
     payload = {
         "merge_variables": {
             "flights": flights_data,
-            "updated_at": datetime.now().strftime("%H:%M")
+            "updated_at": phx_time.strftime("%H:%M")
         }
     }
-    try:
+    # ... (rest of the function stays the same)    try:
         requests.post(webhook_url, json=payload)
     except Exception as e:
         print(f"Failed to update TRMNL: {e}")
